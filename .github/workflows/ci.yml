@@ -1,0 +1,46 @@
+name: Checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  server-and-web:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: flodo
+          POSTGRES_PASSWORD: test-only-ci
+          POSTGRES_DB: flodo_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, mbstring, pdo_sqlite, pdo_pgsql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: find server deploy api -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: php server/tests/run.php && php server/tests/mini-auth.php
+      - run: php server/tests/run.php
+        env:
+          FLODO_TEST_DATABASE: '1'
+          TEST_DATABASE_URL: postgres://flodo:test-only-ci@127.0.0.1:5432/flodo_test?sslmode=disable
+      - run: php server/tests/postgres-concurrency.php
+        env:
+          FLODO_TEST_DATABASE: '1'
+          TEST_DATABASE_URL: postgres://flodo:test-only-ci@127.0.0.1:5432/flodo_test?sslmode=disable
+      - run: node mini-app/model.test.mjs && node mini-app/gestures.test.mjs
+      - run: python3 -m unittest discover -s deploy/tests -v
+      - run: BOT_USERNAME=example_test_bot node deploy/build-vercel.mjs
+      - run: python3 scripts/check-secrets.py
+  mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+      - run: swift build -c release

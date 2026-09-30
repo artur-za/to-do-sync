@@ -1,0 +1,14 @@
+.git
+.deploy
+.env*
+server/config.php
+**/*.sqlite*
+**/data
+**/backups
+Sources
+Tests
+Resources
+dist
+verification
+.build
+.swiftpm

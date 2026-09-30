@@ -1,0 +1,31 @@
+<?php
+declare(strict_types=1);
+$testDir=sys_get_temp_dir().'/flodo-tests-'.bin2hex(random_bytes(6));
+function config(): array {global $testDir;return ['data_dir'=>$testDir,'database_url'=>getenv('TEST_DATABASE_URL')?:null,'owner_id'=>'42','timezone'=>'Europe/Moscow','mini_app_url'=>'https://example.com/mini/index.php'];}
+require __DIR__.'/../src/core.php';require __DIR__.'/../src/bot.php';
+$checks=0;
+function check(bool $v,string $label): void {global $checks;if(!$v)throw new RuntimeException('FAIL: '.$label);$checks++;}
+function message(int $n,string $text,int $owner=42): array {return ['update_id'=>$n,'message'=>['message_id'=>$n,'from'=>['id'=>$owner],'chat'=>['id'=>$owner,'type'=>'private'],'text'=>$text]];}
+function value(string $title,string $bucket='today'): array {$at=nowISO();return ['id'=>uuid(),'title'=>$title,'note'=>'','bucket'=>$bucket,'createdAt'=>$at,'updatedAt'=>$at,'plannedAt'=>$at,'order'=>0];}
+function latestView(): array {return db()->query("SELECT * FROM outbox WHERE unique_key LIKE 'today-view:%' ORDER BY id DESC LIMIT 1")->fetch();}
+try {
+ check(!processUpdate(message(1,'Unauthorized',99)),'owner only');$g=message(2,'Group');$g['message']['chat']['type']='group';check(!processUpdate($g),'private only');
+ processUpdate(message(3,"A\nline\n\nNotes\n\nMore #today"));$a=alive('task')[0];check($a['bucket']==='week','default week');check($a['title']==='A line'&&$a['note']==="Notes\n\nMore #today",'paragraph boundary');processUpdate(message(3,'duplicate'));check(count(alive('task'))===1,'update dedup');
+ $clock=new DateTimeImmutable('2026-09-15 08:00',zone());
+ foreach(['today'=>'today','сегодня'=>'today','week'=>'week','неделя'=>'week','later'=>'later','позже'=>'later'] as $tag=>$b){$p=parseTaskText('Task #'.$tag,$clock);check($p['title']==='Task'&&$p['bucket']===$b,'alias '.$tag);}
+ $p=parseTaskText('Task #25 #ВШЭ',$clock);check(str_starts_with($p['dueDate'],'2026-09-25')&&$p['group']==='ВШЭ','date and group');check(parseTaskText('Task #[Мои проекты]',$clock)['group']==='Мои проекты','bracket group');check(parseTaskText('Task #15',$clock)['bucket']==='today','today deadline');check(parseTaskText('Task #1 #week',$clock)['bucket']==='week','explicit bucket wins');
+ foreach(['Task #31','Task #0','Task #today #later','Task #2 #3','Task #A #B','#today'] as $text){$bad=false;try{parseTaskText($text,$clock);}catch(InvalidArgumentException){$bad=true;}check($bad,'reject '.$text);}
+ check(str_contains(parseTaskText('Leap #29',new DateTimeImmutable('2028-02-01',zone()))['dueDate'],'02-29'),'leap day');$bad=false;try{parseTaskText('Not leap #29',new DateTimeImmutable('2027-02-01',zone()));}catch(InvalidArgumentException){$bad=true;}check($bad,'non leap rejected');
+ processUpdate(message(4,'First #ВШЭ'));processUpdate(message(5,'Second #вшэ'));check(count(alive('list'))===1,'case insensitive reuse');
+ $t=value('Today A');writeRecord('task',$t['id'],$t);$b=value('Today B');$b['order']=1;writeRecord('task',$b['id'],$b);todayList();$view=latestView();$payload=json_decode($view['json'],true);check(str_contains($payload['text'],'<code>#1</code> Today A')&&!isset($payload['reply_markup']['inline_keyboard']),'plain numbered list');check(!str_contains($payload['text'],'Second'),'only today');check(botMeta('bot_current_view')===null,'queued list not current');deliveredBotView($view,['ok'=>false]);check(botMeta('bot_current_view')===null,'failed send not current');deliveredBotView($view,['ok'=>true,'result'=>['message_id'=>101]]);
+ $t['order']=50;writeRecord('task',$t['id'],$t);processUpdate(message(6,'#1'));check(task($t['id'])['bucket']==='done'&&task($b['id'])['bucket']==='today','stable ID despite reordering');check(task($t['id'])['title']==='Today A','ordinal never in title');
+ $n=count(alive('task'));processUpdate(message(7,'Task #1'));check(count(alive('task'))===$n+1,'text plus number creates');processUpdate(message(8,'#1 more'));check(count(alive('task'))===$n+2,'number plus text creates');
+ processUpdate(['update_id'=>9,'callback_query'=>['id'=>'q9','data'=>'done:'.$b['id'],'from'=>['id'=>42],'message'=>['chat'=>['id'=>42,'type'=>'private']]]]);check(task($b['id'])['bucket']==='today','old callback cannot edit');
+ $v=json_decode(botMeta('bot_current_view'),true);$v['day']='2000-01-01';botMeta('bot_current_view',json_encode($v));processUpdate(message(10,'#2'));check(task($b['id'])['bucket']==='today','stale daily numbers refused');
+ $base=record('task',$b['id']);$edit=$base['value'];$edit['title']='Mac edit';$op=['kind'=>'task','id'=>$b['id'],'baseVersion'=>$base['version'],'value'=>$edit];$r=syncChanges(['epoch'=>epoch(),'operations'=>[$op]]);check(!$r['conflicts'],'CAS accepted');$rev=revision();syncChanges(['epoch'=>epoch(),'operations'=>[$op]]);check(revision()===$rev,'CAS idempotent');$op['value']['title']='Stale';check(count(syncChanges(['operations'=>[$op]])['conflicts'])===1&&task($b['id'])['title']==='Mac edit','CAS conflict');$bad=false;try{syncChanges(['epoch'=>'wrong']);}catch(DomainException){$bad=true;}check($bad,'epoch');
+ $b=task($b['id']);$b['reminder']=gmdate('Y-m-d\TH:i:s\Z',time()-5);writeRecord('task',$b['id'],$b);reminders();$n=db()->query('SELECT count(*) FROM outbox')->fetchColumn();reminders();check($n===db()->query('SELECT count(*) FROM outbox')->fetchColumn(),'reminder once');$r=db()->query("SELECT json FROM outbox WHERE unique_key LIKE 'reminder:%' LIMIT 1")->fetchColumn();check(str_contains($r,'web_app')&&!str_contains($r,'callback_data'),'reminder opens mini only');
+ $clock=new DateTimeImmutable('today',zone());dailyToday($clock->setTime(8,59));check(botMeta('daily_today_date')===null,'not before nine');dailyToday($clock->setTime(9,0));check(botMeta('daily_today_date')===day(),'nine Moscow');$n=db()->query('SELECT count(*) FROM outbox')->fetchColumn();dailyToday($clock->setTime(12,0));check($n===db()->query('SELECT count(*) FROM outbox')->fetchColumn(),'daily once');
+ // Explicit reply numbers refer to the delivered message, not a subsequently reordered list.
+ $reply=message(11,'#2');$reply['message']['reply_to_message']['message_id']=101;processUpdate($reply);check(task($b['id'])['bucket']==='done','reply snapshot');
+ echo "PASS: $checks assertions\n";
+}finally{foreach(glob($testDir.'/*')?:[] as $f)unlink($f);if(is_dir($testDir))rmdir($testDir);}

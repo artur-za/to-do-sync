@@ -1,0 +1,9 @@
+{
+  "public_url": "https://todo.example.com",
+  "mini_app_url": "https://todo.example.com/mini/index.php",
+  "bot_username": "YOUR_BOT_USERNAME",
+  "bot_token": "FROM_BOTFATHER",
+  "owner_id": "YOUR_NUMERIC_TELEGRAM_USER_ID",
+  "timezone": "Europe/Moscow",
+  "transport": "polling"
+}

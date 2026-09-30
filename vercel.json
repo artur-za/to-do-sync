@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node deploy/build-vercel.mjs",
+  "outputDirectory": "public",
+  "functions": {
+    "api/*.php": {"runtime": "vercel-php@0.9.0", "maxDuration": 60}
+  },
+  "rewrites": [
+    {"source": "/index.php", "destination": "/api/index.php"},
+    {"source": "/mini/index.php", "destination": "/mini/index.html"}
+  ],
+  "redirects": [{"source": "/", "destination": "/mini/", "permanent": false}],
+  "headers": [{"source": "/mini/(.*)", "headers": [
+    {"key": "Cache-Control", "value": "no-store"},
+    {"key": "Referrer-Policy", "value": "no-referrer"},
+    {"key": "X-Content-Type-Options", "value": "nosniff"},
+    {"key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'"}
+  ]}]
+}

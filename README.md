@@ -1,0 +1,74 @@
+# To-do Sync / Flodo Open
+
+Нативный macOS-клиент, Telegram-бот и мобильный Telegram Mini App с общей базой задач. Независимая реализация на SwiftUI/AppKit и PHP, MIT. Код и фирменные ресурсы оригинальной Flodo не включены.
+
+**Для AI-агента:** начните с [AGENTS.md](AGENTS.md), затем [DEPLOY.md](DEPLOY.md). Здесь есть два полных варианта установки:
+
+| Развёртывание | База | Telegram | Напоминания |
+|---|---|---|---|
+| SSH / PHP-хостинг | SQLite вне web root | polling или webhook | cron каждую минуту |
+| Vercel | внешний PostgreSQL, например Neon через Marketplace | webhook | Vercel Pro cron или внешний планировщик |
+
+Vercel размещает и сервер, и Mini App. Постоянные данные находятся в PostgreSQL: локальный диск функции для базы не используется. Нужен доступ к существующей базе либо возможность создать её в аккаунте. На Hobby встроенный cron недостаточно частый для напоминаний; агент должен подключить внешний планировщик или согласованный Pro-тариф. Подробности и первичные источники — в [инструкции Vercel](docs/VERCEL.md).
+
+Пример задания другому агенту:
+
+> Разверни https://github.com/artur-za/to-do-sync. Прочитай AGENTS.md и DEPLOY.md. Цель: SSH [или Vercel]. Доступ к хостингу и токен бота передаю отдельно. Определи остальные параметры из окружения, сгенерируй ключи, выполни проверки. Не используй чужие задачи и не публикуй секреты. Запроси только то, что нельзя определить безопасно: мой Telegram ID, выбор домена или разрешение на платные ресурсы.
+
+## Возможности
+
+- Later / This week / Today, завершённые задачи, списки, цвета и 30 иконок.
+- Нативный Mac: Dock, menu bar со счётчиком Today, клавиатурные команды, drag-and-drop, форматированные заметки и напоминания.
+- Mini App: мобильные вкладки и свайпы, пять тем, поиск, редактор, перенос после скрытия описаний, добавление на домашний экран Telegram.
+- Бот: список Today, моноширинные номера/теги/даты; `#3` завершает третью задачу из доставленного списка. Правки — в Mini App.
+- Новая задача сообщением по умолчанию попадает на неделю. `#today / #сегодня`, `#week / #неделя`, `#later / #позже`; `#25` — день текущего месяца; `#[Название списка]` — список. Заметка начинается после пустой строки.
+- Напоминания в Telegram и ежедневный Today в 09:00 Europe/Moscow; Mac может быть выключен.
+- UUID, версии записей, объединение разных полей, архив конфликтов, tombstones. Номера из Telegram не записываются в задачи.
+- Один владелец на установку. Бот и Mini App проверяют owner ID. Mini App использует подписанный Telegram initData; Mac — отдельный Bearer-ключ из Keychain.
+
+## Структура
+
+```text
+Sources/       SwiftUI/AppKit, FlowCore, CLI flowctl
+Tests/         Swift tests
+server/src/    общая логика бота/API для SQLite и PostgreSQL
+server/tests/  серверные сценарии и Telegram auth
+mini-app/      JavaScript/CSS без сборщика и зависимостей
+api/           Vercel PHP functions: API + защищённый cron
+deploy/        сборка пакета, установка, cron, настройка бота, smoke checks
+docs/          SSH, Vercel, архитектура, обновления и ограничения
+```
+
+## Mac
+
+macOS 15+, Swift 6 / Xcode 16+. Сборка проверяется в CI, локальная разработка также проверялась Xcode 26.
+
+```sh
+swift test
+bash scripts/build.sh
+open "dist/Flodo Open.app"
+```
+
+В Settings → Telegram sync указать `https://DOMAIN/index.php?route=sync` и отдельный sync token. На Vercel также работает `/api/index.php?route=sync`. Ключ вводится в SecureField либо через stdin `FlodoOpen --configure-sync ENDPOINT`; не передавайте ключ аргументом. Подробности — [MAC.md](docs/MAC.md).
+
+## Проверки
+
+```sh
+swift test
+php server/tests/run.php
+php server/tests/mini-auth.php
+node mini-app/model.test.mjs
+node mini-app/gestures.test.mjs
+python3 -m unittest discover -s deploy/tests -v
+python3 scripts/check-secrets.py
+```
+
+CI проверяет сервер и на SQLite, и на настоящем PostgreSQL, сборку Mac, JS и повторную установку в изолированную папку. Нативные тесты окна дополнительно: `FLODO_TEST_UI=1 swift test` в пользовательской macOS-сессии. Нельзя считать реальный deployment проверенным только по успешному build: выполните acceptance checklist в DEPLOY.md.
+
+## Данные и ограничения
+
+Новая установка пустая: личные задачи, конфигурации, токены, сертификаты подписи и бинарники в Git не включены. Приложение хранит локальные данные в `~/Library/Application Support/FlodoOpen`; тесты используют отдельные каталоги. iCloud не используется.
+
+Mini App редактирует заметки как текст: изменение самой заметки заменяет форматирование/изображения Mac, изменение других полей сохраняет их. На Vercel действует ограничение платформы на размер HTTP-запроса — большие RTFD-вложения могут не пройти; см. VERCEL.md. Доставка Telegram повторяется после временной ошибки, но абсолютное exactly-once при потере сетевого подтверждения Telegram не гарантирует.
+
+[Оригинальная Flodo](https://flodo.fehey.com/) — отдельный продукт другого автора; проект с ним не аффилирован.
