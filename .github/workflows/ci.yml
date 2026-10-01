@@ -34,7 +34,7 @@ jobs:
         env:
           FLODO_TEST_DATABASE: '1'
           TEST_DATABASE_URL: postgres://flodo:test-only-ci@127.0.0.1:5432/flodo_test?sslmode=disable
-      - run: node mini-app/model.test.mjs && node mini-app/gestures.test.mjs
+      - run: node mini-app/model.test.mjs && node mini-app/gestures.test.mjs && node mini-app/images.test.mjs
       - run: python3 -m unittest discover -s deploy/tests -v
       - run: BOT_USERNAME=example_test_bot node deploy/build-vercel.mjs
       - run: python3 scripts/check-secrets.py

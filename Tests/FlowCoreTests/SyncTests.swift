@@ -9,6 +9,29 @@ final class SyncTests: XCTestCase {
     func snapshot(_ board: Board) throws -> SyncSnapshot {
         SyncSnapshot(epoch: "server", revision: 2, records: try BoardSync.records(board).values.map { var r = $0; r.version = 2; return r })
     }
+    func testImagesSurviveStorageAndIndependentNoteEdits() throws {
+        var original = initial()
+        original.tasks[0].images = [TaskImage(dataURL: "data:image/png;base64,AAAA")]
+        let record = try XCTUnwrap(BoardSync.records(original).values.first { $0.kind == "task" })
+        if case .array(let images) = record.value?.object?["images"] {
+            XCTAssertEqual(images.first?.object?["id"], .string(original.tasks[0].images![0].id.uuidString.lowercased()))
+        } else { XCTFail("Missing encoded images") }
+        let data = try Repository.encoder().encode(original)
+        XCTAssertEqual(try Repository.decoder().decode(Board.self, from: data), original)
+        var legacy = initial()
+        XCTAssertNil(try Repository.decoder().decode(Board.self, from: Repository.encoder().encode(legacy)).tasks[0].images)
+        var upgraded = original; upgraded.tasks[0].images = nil
+        XCTAssertTrue(try BoardSync.merge(board: &upgraded, base: state(original), remote: snapshot(original)).isEmpty)
+        XCTAssertEqual(upgraded.tasks[0].images, original.tasks[0].images)
+        var local = original; local.tasks[0].images?.append(TaskImage(dataURL: "data:image/jpeg;base64,BBBB"))
+        var remote = original; remote.tasks[0].note = "Edited on another device"
+        XCTAssertTrue(try BoardSync.merge(board: &local, base: state(original), remote: snapshot(remote)).isEmpty)
+        XCTAssertEqual(local.tasks[0].images?.count, 2)
+        XCTAssertEqual(local.tasks[0].note, remote.tasks[0].note)
+        legacy = local; legacy.tasks[0].images = []
+        _ = try BoardSync.merge(board: &local, base: state(local), remote: snapshot(legacy))
+        XCTAssertEqual(local.tasks[0].images, [])
+    }
     func testIndependentEditsMergeAndGenerateRetry() throws {
         let original = initial(); let base = try state(original)
         var local = original; local.tasks[0].title = "Mac"

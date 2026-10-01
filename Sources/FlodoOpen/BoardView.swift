@@ -204,6 +204,7 @@ struct TaskRow: View {
                 }
                 if !store.compact {
                     if !task.note.isEmpty { Text(task.note).foregroundStyle(.secondary).lineLimit(3) }
+                    if let images = task.images, !images.isEmpty { TaskImageStrip(images: images) }
                     if list != nil || task.dueDate != nil || task.reminder != nil { metadata }
                 }
                 DottedLine().stroke(Color.primary.opacity(0.13), style: StrokeStyle(lineWidth: 1.5, dash: [3, 7])).frame(height: 1).padding(.top, store.compact ? 10 : 6)

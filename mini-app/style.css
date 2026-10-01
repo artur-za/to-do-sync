@@ -34,3 +34,16 @@ html{-webkit-text-size-adjust:100%}.heading h1{min-width:0;font-size:clamp(20px,
 .sheet-header .progressive-blur:before{background:linear-gradient(to bottom,color-mix(in srgb,var(--glass) 80%,transparent),transparent)}
 .sheet-header .handle{position:relative;top:14px;margin:0 auto;z-index:1}
 @media(min-width:650px){.sheet{padding-top:0}.sheet-header{margin-inline:-20px;height:35px}.sheet-header .handle{top:18px}}
+/* Raster attachments stay compact; the preview uses one travelling image. */
+.task-images{display:flex;gap:6px;overflow-x:auto;align-items:center;margin-top:8px;padding:0;max-width:100%;height:36px}
+.task-image-wrap{position:relative;flex:none;height:36px}.task-image{display:block;position:relative;border:0;padding:0;height:36px;max-width:144px;min-width:36px;border-radius:7px;overflow:hidden;background:rgba(127,127,127,.12);cursor:zoom-in}
+.task-image img{display:block;height:36px;max-width:144px;min-width:36px;object-fit:contain;transition:filter .18s}.task-image .image-lens{position:absolute;inset:0;display:grid;place-items:center;opacity:0;color:white;background:rgba(0,0,0,.15);transition:opacity .18s}.image-lens svg{width:18px;height:18px}
+@media(hover:hover){.task-image:hover img{filter:blur(3px)}.task-image:hover .image-lens{opacity:1}}
+.task-image:focus-visible .image-lens{opacity:1}.task-image:focus-visible img{filter:blur(3px)}
+.image-remove{position:absolute;right:0;top:0;width:16px;height:16px;border:0;border-radius:50%;background:#222c;color:white;font-size:12px;line-height:16px;padding:0;cursor:pointer}
+.image-add{display:inline-flex;align-items:center;gap:5px;font-size:13px;margin:10px 0;color:var(--muted);cursor:pointer}.image-add svg{width:16px;height:16px}.image-add input{display:none}
+.compact .task-images{display:none}
+.image-viewer{position:fixed;inset:0;z-index:10000;isolation:isolate}.image-veil{position:absolute;inset:0;background:rgba(20,25,30,.35);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.image-expanded{position:absolute;object-fit:contain;border-radius:7px;max-width:none;max-height:none;box-shadow:0 16px 80px #0004;user-select:none}
+.image-copy{position:absolute;bottom:max(20px,env(safe-area-inset-bottom));left:calc(50% - 18px);width:36px;height:36px;border-radius:50%;border:1px solid #ffffff24;background:#ffffff26;color:white;display:grid;place-items:center;backdrop-filter:blur(12px);cursor:pointer;padding:9px}.image-copy svg{width:18px;height:18px}.image-copy.copied svg{opacity:0}.image-copy.copied:after{content:'✓';position:absolute;font-size:18px}
+@media(prefers-reduced-motion:reduce){.task-image img,.image-lens{transition:none}}

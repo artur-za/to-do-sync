@@ -69,6 +69,13 @@ public enum BoardSync {
         for key in ["id", "listID", "pinnedTaskID"] {
             if case .string(let id) = object[key] { object[key] = .string(id.lowercased()) }
         }
+        if case .array(let images) = object["images"] {
+            object["images"] = .array(images.map { image in
+                guard var fields = image.object else { return image }
+                if case .string(let id) = fields["id"] { fields["id"] = .string(id.lowercased()) }
+                return .object(fields)
+            })
+        }
         return .object(object)
     }
     public static func records(_ board: Board) throws -> [String: SyncRecord] {
@@ -97,7 +104,12 @@ public enum BoardSync {
         var merged = local; var conflicts: [SyncConflict] = []
         for (key, r) in incoming {
             let b = base.records[key]?.value
-            let l = local[key]?.value
+            var l = local[key]?.value
+            // Pre-attachment Mac versions dropped unknown fields while decoding.
+            // An absent field is legacy state; explicit [] means the user removed images.
+            if r.kind == "task", var fields = l?.object, fields["images"] == nil, let images = r.value?.object?["images"] {
+                fields["images"] = images; l = .object(fields)
+            }
             let other = r.deleted ? nil : r.value
             var chosen: JSONValue?
             if b == nil, r.kind == "settings", l?.object?["pinnedTaskID"] == .null { chosen = other }

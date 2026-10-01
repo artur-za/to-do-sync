@@ -36,5 +36,12 @@ try {
   syncChanges(['operations'=>[['kind'=>'task','id'=>$t['id'],'baseVersion'=>$before['version'],'value'=>$edited]]]);
   check(task($t['id'])['bucket']===$column,'deadline edit preserves '.$column);
  }
+ $imageTask=value('Image attachment');$image=['id'=>uuid(),'dataURL'=>'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6wAAAAABJRU5ErkJggg=='];
+ $imageTask['images']=[$image];writeRecord('task',$imageTask['id'],$imageTask);check(task($imageTask['id'])['images']===[$image],'image persists');
+ $imgBefore=record('task',$imageTask['id']);$imageTask['note']='Edited note';syncChanges(['operations'=>[['kind'=>'task','id'=>$imageTask['id'],'baseVersion'=>$imgBefore['version'],'value'=>$imageTask]]]);check(task($imageTask['id'])['images']===[$image],'sync preserves image');
+ foreach(['data:image/svg+xml;base64,AAAA','https://example.com/a.png','data:image/png;base64,AAAA',str_repeat('A',1500001)] as $url){$invalid=$imageTask;$invalid['images'][0]['dataURL']=$url;$bad=false;try{validateRecord('task',$invalid['id'],$invalid);}catch(InvalidArgumentException){$bad=true;}check($bad,'invalid raster rejected');}
+ $invalid=$imageTask;$invalid['images']=array_fill(0,9,$image);$bad=false;try{validateRecord('task',$invalid['id'],$invalid);}catch(InvalidArgumentException){$bad=true;}check($bad,'attachment count limit');
+ $legacy=$imageTask;unset($legacy['images']);writeRecord('task',$legacy['id'],$legacy);check(task($legacy['id'])['images']===[$image],'old clients cannot erase images');
+ $legacy['images']=[];writeRecord('task',$legacy['id'],$legacy);check(task($legacy['id'])['images']===[],'explicit image removal');
  echo "PASS: $checks assertions\n";
 }finally{foreach(glob($testDir.'/*')?:[] as $f)unlink($f);if(is_dir($testDir))rmdir($testDir);}

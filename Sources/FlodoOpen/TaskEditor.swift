@@ -32,9 +32,13 @@ struct TaskEditor: View {
                 .onSubmit(save).onChange(of: draft.title) { _, value in parse(value) }
             ZStack(alignment: .topLeading) {
                 if draft.note.isEmpty { Text("Notes").foregroundStyle(.tertiary).padding(.leading, 8).padding(.top, 8).allowsHitTesting(false) }
-                RichNoteEditor(text: $draft.note, richData: $draft.noteData, isFocused: $notesFocused).frame(height: 60).padding(.horizontal, 3).padding(.vertical, 4)
+                RichNoteEditor(text: $draft.note, richData: $draft.noteData, isFocused: $notesFocused, pasteImages: pasteImages).frame(height: 60).padding(.horizontal, 3).padding(.vertical, 4)
             }.background(Color.primary.opacity(notesFocused || notesHover ? 0.065 : 0), in: RoundedRectangle(cornerRadius: 9))
                 .onHover { notesHover = $0 }.padding(.bottom, 10)
+            if let images = draft.images, !images.isEmpty {
+                TaskImageStrip(images: images, remove: { id in draft.images?.removeAll { $0.id == id } })
+                    .padding(.bottom, 10)
+            }
             dateRow
             separator
             reminderRow
@@ -54,7 +58,19 @@ struct TaskEditor: View {
         .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.8))
         .shadow(color: .black.opacity(0.12), radius: 18, y: 6)
         .onAppear { original = store.board.tasks.first { $0.id == initial.id }; titleFocused = true }
+        .background(ImagePasteCapture(action: pasteImages))
         .onExitCommand { store.editor = nil }
+    }
+    private func pasteImages() -> Bool {
+        guard let images = NSImage.readableTypes(for: .general).first(where: { NSPasteboard.general.availableType(from: [$0]) != nil }), !images.rawValue.isEmpty else { return false }
+        do {
+            let additions = try ClipboardImages.read()
+            guard !additions.isEmpty else { return false }
+            let combined = (draft.images ?? []) + additions
+            try ClipboardImages.validate(combined)
+            draft.images = combined
+        } catch { store.error = error.localizedDescription }
+        return true
     }
     private var separator: some View { DottedLine().stroke(Color.primary.opacity(0.18), style: StrokeStyle(lineWidth: 1.5, dash: [3, 7])).frame(height: 1).padding(.leading, 24) }
     private var dateRow: some View {

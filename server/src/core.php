@@ -18,6 +18,9 @@ function snapshot(): array {
 }
 function writeRecord(string $kind,string $id,?array $value): array {
     $id=strtolower($id);$existing=record($kind,$id);
+    // Older Mac builds do not decode this field. Omission must not erase attachments.
+    // New clients delete explicitly using images: [].
+    if ($kind==='task' && $value!==null && !isset($value['images']) && isset($existing['value']['images'])) $value['images']=$existing['value']['images'];
     if ($existing && $existing['value']==$value && $existing['deleted']===($value===null)) return $existing;
     validateRecord($kind,$id,$value);
     $rev=revision()+1;
@@ -42,6 +45,17 @@ function validateRecord(string $kind,string $id,?array $value): void {
         foreach (['dueDate','reminder','completedAt'] as $field) if (isset($value[$field])&&(!is_string($value[$field])||strtotime($value[$field])===false)) throw new InvalidArgumentException('Invalid date');
         if (!is_numeric($value['order']??null)||!is_string($value['note']??null)||strlen($value['note'])>200000) throw new InvalidArgumentException('Invalid content');
         if (isset($value['listID'])&&!validID($value['listID'])) throw new InvalidArgumentException('Invalid list');
+        if (isset($value['images'])) {
+            if (!is_array($value['images']) || !array_is_list($value['images']) || count($value['images']) > 8) throw new InvalidArgumentException('Invalid images');
+            $total=0; $ids=[];
+            foreach ($value['images'] as $image) {
+                if (!is_array($image) || !validID($image['id']??'') || isset($ids[strtolower($image['id'])]) || !is_string($image['dataURL']??null)) throw new InvalidArgumentException('Invalid image');
+                $ids[strtolower($image['id'])]=true; $url=$image['dataURL']; $total+=strlen($url);
+                if ($total>1500000 || !preg_match('~^data:image/(jpeg|png);base64,([A-Za-z0-9+/]+={0,2})$~D',$url,$m)) throw new InvalidArgumentException('Invalid image data');
+                $bytes=base64_decode($m[2],true); $size=$bytes===false?false:@getimagesizefromstring($bytes);
+                if (!$size || $size[0]>4096 || $size[1]>4096 || $size['mime']!=='image/'.$m[1]) throw new InvalidArgumentException('Invalid raster image');
+            }
+        }
         if (isset($value['noteData'])&&(!is_string($value['noteData'])||strlen($value['noteData'])>6000000)) throw new InvalidArgumentException('Attachment too large');
     } else {
         if (!preg_match('/^#[a-f0-9]{6}$/i',$value['color']??'')) throw new InvalidArgumentException('Invalid color');

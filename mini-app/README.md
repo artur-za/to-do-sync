@@ -24,7 +24,7 @@
 
 Для локального просмотра: `python3 -m http.server 8123` из этой папки, затем `http://127.0.0.1:8123/?demo=1`. Demo использует только вымышленные задачи в памяти и не вызывает API. Проверены мобильная ширина, создание задачи без даты, списки/иконки, перенос карточки к вкладке и завершение. Физический жест удержания на iPhone отдельно не тестировался.
 
-Для установки скопировать index.php, index.html, app.mjs, gestures.mjs, model.mjs, icons.mjs, style.css, config.mjs и .htaccess в публичную папку mini рядом с index.php API. Обновить серверные http.php и mini-auth.php. Установить меню бота через setChatMenuButton с web_app URL `https://YOUR_DOMAIN/flodo-open/mini/index.php`. Команда /app в bot.php должна указывать туда же. HTTPS обязателен. Не размещайте конфигурацию и базу в mini.
+Для установки скопировать index.php, index.html, app.mjs, gestures.mjs, images.mjs, model.mjs, icons.mjs, style.css, config.mjs и .htaccess в публичную папку mini рядом с index.php API. Обновить серверные http.php и mini-auth.php. Установить меню бота через setChatMenuButton с web_app URL `https://YOUR_DOMAIN/flodo-open/mini/index.php`. Команда /app в bot.php должна указывать туда же. HTTPS обязателен. Не размещайте конфигурацию и базу в mini.
 
 Документация Telegram: https://core.telegram.org/bots/webapps
 

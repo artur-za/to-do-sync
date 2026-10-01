@@ -27,6 +27,7 @@ final class TaskDragView: NSView, NSDraggingSource {
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
         guard bounds.contains(local), local.x > 25 else { return nil }
+        if let root = window?.contentView, ImageThumbnail.containsThumbnail(in: root, windowPoint: convert(local, to: nil)) { return nil }
         if let event = NSApp?.currentEvent, [.rightMouseDown, .rightMouseUp, .scrollWheel].contains(event.type) || event.modifierFlags.contains(.control) { return nil }
         return self
     }

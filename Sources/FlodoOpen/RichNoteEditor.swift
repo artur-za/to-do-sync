@@ -6,11 +6,13 @@ struct RichNoteEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var richData: Data?
     @Binding var isFocused: Bool
+    var pasteImages: () -> Bool = { false }
     func makeCoordinator() -> Coordinator { Coordinator(self) }
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
         scroll.drawsBackground = false; scroll.hasVerticalScroller = true; scroll.autohidesScrollers = true
         let view = FocusNoteView(frame: .zero)
+        view.pasteImages = { context.coordinator.parent.pasteImages() }
         view.focusChanged = { focused in context.coordinator.parent.isFocused = focused }
         view.isRichText = true; view.importsGraphics = true; view.allowsUndo = true
         view.isAutomaticLinkDetectionEnabled = true; view.isContinuousSpellCheckingEnabled = true
@@ -47,6 +49,8 @@ struct RichNoteEditor: NSViewRepresentable {
 }
 
 final class FocusNoteView: NSTextView {
+    var pasteImages: (() -> Bool)?
+    override func paste(_ sender: Any?) { if pasteImages?() != true { super.paste(sender) } }
     var focusChanged: ((Bool) -> Void)?
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()

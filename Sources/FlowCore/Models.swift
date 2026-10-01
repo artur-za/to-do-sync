@@ -24,11 +24,19 @@ public struct TaskList: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+/// Raster-only, portable attachments. Kept separate from rich text so note edits cannot erase images.
+public struct TaskImage: Codable, Identifiable, Equatable, Sendable {
+    public var id: UUID
+    public var dataURL: String
+    public init(id: UUID = UUID(), dataURL: String) { self.id = id; self.dataURL = dataURL }
+}
+
 public struct FlowTask: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
     public var title: String
     public var note: String
     public var noteData: Data?
+    public var images: [TaskImage]?
     public var listID: UUID?
     public var bucket: Bucket
     public var previousBucket: Bucket?

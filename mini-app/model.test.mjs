@@ -25,3 +25,10 @@ assert.equal(placeTask({...task,dueDate:clock},true,null,clock).bucket,'today');
 assert.equal(placeTask(task,true,null,clock).bucket,'later');
 assert.equal(placeTask({...task,bucket:'today',dueDate:clock},false,'week',clock).bucket,'week');
 console.log('PASS: existing columns survive deadline edits; creation and explicit moves still place tasks');
+
+const image={id:'image-id',dataURL:'data:image/png;base64,AAAA'};
+s=merge(blankState(),remote({...task,images:[image]}));
+s.local['task/a'].images.push({...image,id:'second'});
+s=merge(s,remote({...task,note:'Changed note',images:[image]},2));
+assert.equal(s.local['task/a'].images.length,2);assert.equal(s.local['task/a'].note,'Changed note');assert.equal(s.conflicts.length,0);
+console.log('PASS: independent note changes preserve image attachments');

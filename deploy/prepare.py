@@ -11,7 +11,7 @@ import shutil
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ['index.html', 'index.php', '.htaccess', 'app.mjs', 'model.mjs', 'icons.mjs', 'gestures.mjs', 'style.css']
+ASSETS = ['index.html', 'index.php', '.htaccess', 'app.mjs', 'model.mjs', 'icons.mjs', 'gestures.mjs','images.mjs', 'style.css']
 
 def https_url(value):
     parsed = urlparse(value)
