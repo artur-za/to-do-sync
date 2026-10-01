@@ -91,7 +91,7 @@ import UserNotifications
     }
     @discardableResult func save(_ task: FlowTask, original: FlowTask?, scheduleChanged: Bool = false) -> Bool {
         var task = task
-        if task.bucket != .done && (original == nil || scheduleChanged || task.dueDate != original?.dueDate) {
+        if task.bucket != .done && original == nil {
             task.move(to: Bucket.scheduled(for: task.dueDate))
         }
         var succeeded = false

@@ -9,7 +9,7 @@ final class InteractionTests: XCTestCase {
         store.undoManager.groupsByEvent = false
         return store
     }
-    @MainActor func testNoDateCreationAndExplicitDateClearingGoToLater() throws {
+    @MainActor func testOnlyCreationChoosesColumnFromDate() throws {
         let store = makeStore(); defer { try? FileManager.default.removeItem(at: store.repository.directory) }
         store.undoManager.beginUndoGrouping(); defer { store.undoManager.endUndoGrouping() }
         store.create(in: .today)
@@ -20,11 +20,12 @@ final class InteractionTests: XCTestCase {
         task = try XCTUnwrap(store.board.tasks.first)
         let original = task; task.dueDate = Calendar.current.startOfDay(for: Date())
         XCTAssertTrue(store.save(task, original: original))
-        XCTAssertEqual(store.board.tasks.first?.bucket, .today)
+        XCTAssertEqual(store.board.tasks.first?.bucket, .later)
+        store.move(task.id, to: .today)
         task = try XCTUnwrap(store.board.tasks.first)
         let dated = task; task.dueDate = nil
         XCTAssertTrue(store.save(task, original: dated, scheduleChanged: true))
-        XCTAssertEqual(store.board.tasks.first?.bucket, .later)
+        XCTAssertEqual(store.board.tasks.first?.bucket, .today)
     }
     @MainActor func testEditingAnUndatedManuallyMovedTaskPreservesItsColumn() throws {
         let store = makeStore(); defer { try? FileManager.default.removeItem(at: store.repository.directory) }

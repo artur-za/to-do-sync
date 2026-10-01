@@ -64,24 +64,9 @@ public struct Board: Codable, Equatable, Sendable {
     public var pinnedTaskID: UUID?
     public init() {}
 
-    /// Today falls back to this week at midnight, and to Later across a week boundary.
-    /// An explicitly scheduled future task joins Today on its date, but is not repeatedly
-    /// promoted after it becomes overdue. Date comparisons use the user's local calendar.
+    /// Columns are user-owned. Time and deadlines never move existing tasks.
+    /// Keep only non-scheduling housekeeping for callers during refresh/sync.
     public mutating func reconcile(now: Date = Date(), calendar: Calendar = .current) {
-        for i in tasks.indices where tasks[i].bucket != .done {
-            let old = tasks[i].bucket
-            let sameWeek = calendar.isDate(tasks[i].plannedAt, equalTo: now, toGranularity: .weekOfYear)
-            if (old == .week || old == .today) && !sameWeek {
-                tasks[i].bucket = .later
-            } else if old == .today && !calendar.isDate(tasks[i].plannedAt, inSameDayAs: now) {
-                tasks[i].bucket = .week
-            }
-            if let due = tasks[i].dueDate, calendar.isDate(due, inSameDayAs: now),
-               !calendar.isDate(tasks[i].plannedAt, inSameDayAs: now) {
-                tasks[i].bucket = .today
-            }
-            if tasks[i].bucket != old { tasks[i].plannedAt = now; tasks[i].updatedAt = now }
-        }
         if let pinnedTaskID, !tasks.contains(where: { $0.id == pinnedTaskID && $0.bucket != .done }) {
             self.pinnedTaskID = nil
         }

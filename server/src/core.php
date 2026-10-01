@@ -59,16 +59,9 @@ function scheduled(?string $date): string {
     if (!$date) return 'later';$now=new DateTimeImmutable('now',zone());$d=(new DateTimeImmutable($date))->setTimezone(zone());
     return $d->format('Y-m-d')===$now->format('Y-m-d')?'today':($d->format('o-W')===$now->format('o-W')?'week':'later');
 }
-function reconcile(): void {
-    $now=new DateTimeImmutable('now',zone());
-    foreach(alive('task') as $t) {
-        if($t['bucket']==='done')continue;$old=$t['bucket'];$p=(new DateTimeImmutable($t['plannedAt']))->setTimezone(zone());
-        if(in_array($old,['week','today'])&&$p->format('o-W')!==$now->format('o-W'))$t['bucket']='later';
-        elseif($old==='today'&&$p->format('Y-m-d')!==$now->format('Y-m-d'))$t['bucket']='week';
-        if(isset($t['dueDate'])&&day($t['dueDate'])===day()&&day($t['plannedAt'])!==day())$t['bucket']='today';
-        if($t['bucket']!==$old){$t['plannedAt']=nowISO();$t['updatedAt']=nowISO();writeRecord('task',$t['id'],$t);}
-    }
-}
+// Compatibility hook: deadlines and calendar changes never move existing tasks.
+function reconcile(): void {}
+
 function syncChanges(array $body): array {
     if (isset($body['epoch'])&&$body['epoch']!==epoch()) throw new DomainException('Server identity changed');
     $ops=$body['operations']??[];

@@ -7,30 +7,28 @@ final class FlowCoreTests: XCTestCase {
     }
     func date(_ text: String) -> Date { ISO8601DateFormatter().date(from: text)! }
     func repository() -> Repository { Repository(directory: FileManager.default.temporaryDirectory.appendingPathComponent("FlowTests-\(UUID())")) }
-    func testTodayRollsBackAtMidnightAndWeekRollsBackMonday() {
+    func testCalendarBoundariesNeverChangeUserColumns() {
         var board = Board()
-        board.tasks = [FlowTask(title: "Test", bucket: .today, now: date("2026-09-29T18:00:00Z"))]
-        board.reconcile(now: date("2026-09-30T08:00:00Z"), calendar: calendar)
-        XCTAssertEqual(board.tasks[0].bucket, .week)
-        board.reconcile(now: date("2026-10-05T08:00:00Z"), calendar: calendar)
-        XCTAssertEqual(board.tasks[0].bucket, .later)
+        let old = date("2026-09-29T18:00:00Z")
+        board.tasks = [FlowTask(title: "Today", bucket: .today, now: old),
+                       FlowTask(title: "Week", bucket: .week, now: old),
+                       FlowTask(title: "Later", bucket: .later, dueDate: date("2026-09-30T00:00:00Z"), now: old)]
+        let original = board
+        for clock in ["2026-09-30T08:00:00Z", "2026-10-05T08:00:00Z", "2027-01-01T08:00:00Z"] {
+            board.reconcile(now: date(clock), calendar: calendar)
+            XCTAssertEqual(board, original)
+        }
     }
-    func testTodayCrossingWeekBoundaryGoesStraightToLater() {
-        var board = Board(); board.tasks = [FlowTask(title: "Test", bucket: .today, now: date("2026-10-04T20:00:00Z"))]
-        board.reconcile(now: date("2026-10-05T08:00:00Z"), calendar: calendar)
-        XCTAssertEqual(board.tasks[0].bucket, .later)
-    }
-    func testFutureDatePromotesOnceAndCompletionIsPreserved() {
+    func testManualMovesSurviveRefreshOnDueDateAndAcrossWeeks() {
         var board = Board()
         let due = date("2026-09-30T00:00:00Z")
-        board.tasks = [FlowTask(title: "Due", dueDate: due, now: date("2026-09-29T08:00:00Z"))]
-        board.reconcile(now: date("2026-09-30T08:00:00Z"), calendar: calendar)
-        XCTAssertEqual(board.tasks[0].bucket, .today)
-        board.reconcile(now: date("2026-10-01T08:00:00Z"), calendar: calendar)
-        XCTAssertEqual(board.tasks[0].bucket, .week)
-        board.tasks[0].move(to: .done)
-        board.reconcile(now: date("2026-10-15T08:00:00Z"), calendar: calendar)
-        XCTAssertEqual(board.tasks[0].bucket, .done)
+        board.tasks = [FlowTask(title: "Due", bucket: .today, dueDate: due, now: date("2026-09-29T08:00:00Z"))]
+        for destination in [Bucket.week, .later, .today] {
+            board.tasks[0].move(to: destination, now: date("2026-09-29T09:00:00Z"))
+            board.reconcile(now: due, calendar: calendar)
+            board.reconcile(now: date("2026-10-15T08:00:00Z"), calendar: calendar)
+            XCTAssertEqual(board.tasks[0].bucket, destination)
+        }
     }
     func testUndoCompletionRestoresBucketAndClearsPinnedTask() {
         var board = Board(); board.tasks = [FlowTask(title: "Pinned", bucket: .today)]; board.pinnedTaskID = board.tasks[0].id

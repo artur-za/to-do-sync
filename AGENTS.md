@@ -19,6 +19,10 @@ Read README.md and DEPLOY.md before acting. Use docs/SSH.md or docs/VERCEL.md fo
 - The public route health check does not verify the DB or scheduler. Check authenticated sync, bot status, cron and an end-to-end temporary task before claiming success.
 - BotFather Main Mini App setup is a user-owned Telegram account action, separate from setChatMenuButton. Complete Bot API configuration automatically; if BotFather access is unavailable, give the exact bot and URL for that one remaining step.
 
+## Column ownership
+
+- Existing task columns are user-owned. Never move tasks based on clock, week boundaries, overdue status or deadline edits. Apply scheduling defaults only when creating a task. Explicit drag/drop, move, complete/reopen remain user actions. Preserve this invariant in every client and backend.
+
 ## Preserve data
 
 - Never replace/delete an existing database or reset epoch to fix a deployment error. Back up SQLite with backup API/VACUUM INTO, PostgreSQL with provider snapshots/pg_dump.

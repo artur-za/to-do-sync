@@ -22,6 +22,28 @@ final class StoreTests: XCTestCase {
         store.undoManager.endUndoGrouping()
         XCTAssertEqual(try store.repository.read().tasks.first?.title, "Edited immediately")
     }
+    @MainActor func testEditingDeadlineKeepsEveryExistingColumn() throws {
+        let store = makeStore(); defer { try? FileManager.default.removeItem(at: store.repository.directory) }
+        for bucket in [Bucket.today, .week, .later, .done] {
+            let task = FlowTask(title: "Existing", bucket: bucket)
+            try store.repository.transaction { $0.tasks = [task] }; store.refresh()
+            for deadline in [Date?.some(Date()), Date?.some(Date().addingTimeInterval(86400 * 40)), nil] {
+                let original = try XCTUnwrap(store.board.tasks.first)
+                var edited = original; edited.dueDate = deadline
+                store.undoManager.beginUndoGrouping()
+                XCTAssertTrue(store.save(edited, original: original, scheduleChanged: true))
+                store.undoManager.endUndoGrouping()
+                XCTAssertEqual(store.board.tasks.first?.bucket, bucket)
+                XCTAssertEqual(store.board.tasks.first?.plannedAt, original.plannedAt)
+            }
+        }
+        store.undoManager.beginUndoGrouping()
+        XCTAssertTrue(store.save(FlowTask(title: "New dated", dueDate: Date()), original: nil))
+        XCTAssertTrue(store.save(FlowTask(title: "New without date"), original: nil))
+        store.undoManager.endUndoGrouping()
+        XCTAssertEqual(store.board.tasks.first(where: { $0.title == "New dated" })?.bucket, .today)
+        XCTAssertEqual(store.board.tasks.first(where: { $0.title == "New without date" })?.bucket, .later)
+    }
     @MainActor func testUndoKeepsExternalTasksAndRedoRestoresEdit() throws {
         let store = makeStore(); defer { try? FileManager.default.removeItem(at: store.repository.directory) }
         store.undoManager.beginUndoGrouping()

@@ -23,3 +23,11 @@ export function blankState(){return {epoch:null,revision:-1,base:{},local:{},con
 export function move(task,bucket,now=new Date().toISOString()){const t=clone(task);if(bucket==='done'){if(t.bucket!=='done')t.previousBucket=t.bucket;t.completedAt=now;}else delete t.completedAt;t.bucket=bucket;t.plannedAt=now;t.updatedAt=now;return t;}
 export function scheduled(iso,now=new Date()){if(!iso)return 'later';const d=new Date(iso);if(d.toDateString()===now.toDateString())return 'today';const monday=x=>{const t=new Date(x);t.setHours(0,0,0,0);t.setDate(t.getDate()-(t.getDay()+6)%7);return +t;};return monday(d)===monday(now)?'week':'later';}
 export function insertionOrder(rows,beforeID){const sorted=rows.toSorted((a,b)=>a.order-b.order);const at=beforeID?sorted.findIndex(t=>t.id===beforeID):-1;if(at===0)return sorted[0].order-1;if(at<0)return (sorted.at(-1)?.order??0)+1;return (sorted[at-1].order+sorted[at].order)/2;}
+
+// Automatic placement only happens once; editing a deadline preserves the column.
+export function placeTask(task,isNew,destination,at=new Date().toISOString()){
+ let t=clone(task);
+ if(isNew){t.bucket=scheduled(t.dueDate,new Date(at));t.plannedAt=at;}
+ if(destination)t=move(t,destination,at);
+ return t;
+}

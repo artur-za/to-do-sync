@@ -27,5 +27,14 @@ try {
  $clock=new DateTimeImmutable('today',zone());dailyToday($clock->setTime(8,59));check(botMeta('daily_today_date')===null,'not before nine');dailyToday($clock->setTime(9,0));check(botMeta('daily_today_date')===day(),'nine Moscow');$n=db()->query('SELECT count(*) FROM outbox')->fetchColumn();dailyToday($clock->setTime(12,0));check($n===db()->query('SELECT count(*) FROM outbox')->fetchColumn(),'daily once');
  // Explicit reply numbers refer to the delivered message, not a subsequently reordered list.
  $reply=message(11,'#2');$reply['message']['reply_to_message']['message_id']=101;processUpdate($reply);check(task($b['id'])['bucket']==='done','reply snapshot');
+ // Background reconciliation/reminders and sync never override the user's columns.
+ foreach(['today','week','later'] as $column){
+  $t=value('Old '.$column,$column);$t['plannedAt']='2020-01-01T00:00:00Z';$t['dueDate']=nowISO();writeRecord('task',$t['id'],$t);
+  $before=record('task',$t['id']);reconcile();reminders();syncChanges(['operations'=>[]]);
+  check(record('task',$t['id'])===$before,'calendar and sync preserve '.$column);
+  $edited=$before['value'];$edited['dueDate']='2030-12-31T12:00:00Z';
+  syncChanges(['operations'=>[['kind'=>'task','id'=>$t['id'],'baseVersion'=>$before['version'],'value'=>$edited]]]);
+  check(task($t['id'])['bucket']===$column,'deadline edit preserves '.$column);
+ }
  echo "PASS: $checks assertions\n";
 }finally{foreach(glob($testDir.'/*')?:[] as $f)unlink($f);if(is_dir($testDir))rmdir($testDir);}

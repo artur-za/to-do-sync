@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {blankState,merge,operations,move,scheduled,insertionOrder} from './model.mjs';
+import {blankState,merge,operations,move,scheduled,insertionOrder,placeTask} from './model.mjs';
 const task={id:'a',title:'Original',note:'Note',bucket:'later',order:1};
 const remote=(v,version=1,deleted=false)=>({epoch:'one',revision:version,records:[{kind:'task',id:'a',value:v,version,deleted}]});
 let s=merge(blankState(),remote(task));assert.deepEqual(s.local['task/a'],task);assert.equal(operations(s).length,0);
@@ -12,3 +12,16 @@ s=merge(blankState(),remote(task));delete s.local['task/a'];assert.equal(operati
 const completed=move(task,'done');assert.equal(completed.previousBucket,'later');assert.ok(completed.completedAt);assert.equal(move(completed,'today').completedAt,undefined);
 assert.equal(scheduled(null),'later');assert.equal(insertionOrder([{id:'a',order:1},{id:'b',order:3}],'b'),2);assert.equal(insertionOrder([{id:'a',order:1}],'a'),0);
 console.log('PASS: Mini App merge, CAS, conflict archive, deletion, rich notes, completion and ordering');
+
+const clock='2026-10-01T09:00:00Z';
+for(const bucket of ['today','week','later','done']){
+ for(const dueDate of [undefined,clock,'2027-01-01T12:00:00Z']){
+  const original={...task,bucket,dueDate,plannedAt:'2026-09-01T09:00:00Z'};
+  if(dueDate===undefined)delete original.dueDate;
+  assert.deepEqual(placeTask(original,false,null,clock),original);
+ }
+}
+assert.equal(placeTask({...task,dueDate:clock},true,null,clock).bucket,'today');
+assert.equal(placeTask(task,true,null,clock).bucket,'later');
+assert.equal(placeTask({...task,bucket:'today',dueDate:clock},false,'week',clock).bucket,'week');
+console.log('PASS: existing columns survive deadline edits; creation and explicit moves still place tasks');
